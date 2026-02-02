@@ -1,0 +1,88 @@
+--- a/chrome/browser/helium_flag_choices.h
++++ b/chrome/browser/helium_flag_choices.h
+@@ -39,6 +39,8 @@ namespace helium {
+   constexpr const char kMiddleClickPasteEnabledCommandLine[] =
+       "helium-middle-click-paste-enabled";
+ 
++  constexpr const char kDisableInstallAppCommandLine[] = "disable-install-app";
++
+ }  // namespace helium
+ 
+ #endif  /* CHROME_BROWSER_HELIUM_FLAG_CHOICES_H_ */
+--- a/chrome/browser/helium_flag_entries.h
++++ b/chrome/browser/helium_flag_entries.h
+@@ -44,4 +44,8 @@
+      "Middle Click Paste",
+      "Controls middle click paste functionality. Helium flag.",
+      kOsLinux, FEATURE_VALUE_TYPE(features::kMiddleClickPasteEnabled)},
++    {helium::kDisableInstallAppCommandLine,
++     "Disable 'Install App' option in address bar",
++     "Disables the button to install web apps in the address bar. Helium flag.",
++     kOsDesktop, FEATURE_VALUE_TYPE(features::kDisableInstallApp)},
+ #endif  /* CHROME_BROWSER_HELIUM_FLAG_ENTRIES_H_ */
+--- a/chrome/browser/ui/browser_actions.cc
++++ b/chrome/browser/ui/browser_actions.cc
+@@ -1066,12 +1066,13 @@ void BrowserActions::InitializeBrowserAc
+               l10n_util::GetStringUTF16(IDS_SHOW_CUSTOMIZE_CHROME_TOOLBAR)))
+           .Build());
+ 
+-  root_action_item_->AddChild(
+-      actions::ActionItem::Builder(
+-          base::BindRepeating(
+-              [](BrowserWindowInterface* bwi, actions::ActionItem* item,
+-                 actions::ActionInvocationContext context) {
+-                web_app::ShowPwaInstallDialog(bwi);
++  if (!features::IsInstallAppDisabled()) {
++    root_action_item_->AddChild(
++        actions::ActionItem::Builder(
++            base::BindRepeating(
++                [](BrowserWindowInterface* bwi, actions::ActionItem* item,
++                   actions::ActionInvocationContext context) {
++                  web_app::ShowPwaInstallDialog(bwi);
+               },
+               bwi))
+           .SetActionId(kActionInstallPwa)
+@@ -1081,6 +1082,7 @@ void BrowserActions::InitializeBrowserAc
+           // Text and TooltipText are not populated yet because they are
+           // dynamic. They depend on the current tab WebContents.
+           .Build());
++  }
+ 
+   // Actions that do not directly show up in chrome UI.
+   root_action_item_->AddChild(
+--- a/chrome/browser/ui/ui_features.cc
++++ b/chrome/browser/ui/ui_features.cc
+@@ -16,6 +16,9 @@
+ #include "ui/base/ui_base_features.h"
+ 
+ namespace features {
++// Disable 'Install App' option in address bar
++BASE_FEATURE(kDisableInstallApp,
++                base::FEATURE_DISABLED_BY_DEFAULT);
+ 
+ // Helium Compact Action Toolbar UI
+ BASE_FEATURE(kHeliumCatUi,
+@@ -24,6 +27,10 @@ BASE_FEATURE(kHeliumCatUi,
+ BASE_FEATURE(kHeliumCatFixedAddressBar,
+              base::FEATURE_DISABLED_BY_DEFAULT);
+         
++bool IsInstallAppDisabled() {
++    return base::FeatureList::IsEnabled(kDisableInstallApp);
++}
++
+ bool IsHeliumCatEnabled() {
+   return base::FeatureList::IsEnabled(kHeliumCatUi);
+ }
+--- a/chrome/browser/ui/ui_features.h
++++ b/chrome/browser/ui/ui_features.h
+@@ -20,8 +20,10 @@ namespace features {
+ // All features in alphabetical order. The features should be documented
+ // alongside the definition of their values in the .cc file.
+ 
++BASE_DECLARE_FEATURE(kDisableInstallApp);
+ BASE_DECLARE_FEATURE(kHeliumCatUi);
+ BASE_DECLARE_FEATURE(kHeliumCatFixedAddressBar);
++bool IsInstallAppDisabled();
+ bool IsHeliumCatEnabled();
+ bool IsHeliumCatFixedAddressBar();
+ 
